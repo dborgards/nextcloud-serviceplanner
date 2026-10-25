@@ -111,7 +111,7 @@
       "icon": "music",
       "enabled": false,
       "position": 3,
-      "columnIds": [101, 102, 104],
+      "columnIds": [101, 102, 103, 104],
       "serviceIds": ["7d1678a5-e28f-4b1f-b0f1-a5d7ef93d001"],
       "period": { "kind": "year", "year": 2027 },
       "sort": [{ "columnId": 101, "direction": "desc" }],
