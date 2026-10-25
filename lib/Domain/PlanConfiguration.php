@@ -109,7 +109,7 @@ final class PlanConfiguration implements JsonSerializable {
             $map[$id] = $normalized;
         }
         if (!$hasDate) {
-            throw new InvalidArgumentException('columns.0.role must contain exactly one date column.');
+            throw new InvalidArgumentException('columns must contain exactly one date column.');
         }
         return [$columns, $map];
     }
@@ -228,7 +228,6 @@ final class PlanConfiguration implements JsonSerializable {
             }
 
             $serviceIds = self::nestedArrayAt($view, "$path.serviceIds");
-            self::assertUnique($serviceIds, "$path.serviceIds");
             $normalizedServiceIds = [];
             foreach ($serviceIds as $serviceIndex => $serviceValue) {
                 $servicePath = "$path.serviceIds.$serviceIndex";
@@ -238,6 +237,7 @@ final class PlanConfiguration implements JsonSerializable {
                 }
                 $normalizedServiceIds[] = $serviceId;
             }
+            self::assertUnique($normalizedServiceIds, "$path.serviceIds");
             if ($type === 'service' && $normalizedServiceIds === []) {
                 throw new InvalidArgumentException("$path.serviceIds must not be empty for a service view.");
             }

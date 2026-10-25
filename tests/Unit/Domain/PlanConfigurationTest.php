@@ -176,7 +176,7 @@ final class PlanConfigurationTest extends TestCase {
         yield 'numeric string column ID' => [['columns', 0, 'columnId'], '101', 'columns.0.columnId'];
         yield 'zero column ID' => [['columns', 0, 'columnId'], 0, 'columns.0.columnId'];
         yield 'duplicate column ID' => [['columns', 1, 'columnId'], 101, 'columns.1.columnId'];
-        yield 'missing date role' => [['columns', 0, 'role'], 'text', 'columns.0.role'];
+        yield 'missing date role' => [['columns', 0, 'role'], 'text', 'columns'];
         yield 'second date role' => [['columns', 1, 'role'], 'date', 'columns.1.role'];
         yield 'second title role' => [['columns', 2, 'role'], 'title', 'columns.2.role'];
         yield 'unknown column role' => [['columns', 0, 'role'], 'number', 'columns.0.role'];
@@ -214,6 +214,7 @@ final class PlanConfigurationTest extends TestCase {
         yield 'duplicate view columns' => [['views', 0, 'columnIds'], [101, 101], 'views.0.columnIds'];
         yield 'unknown view service' => [['views', 0, 'serviceIds', 0], '7d1678a5-e28f-4b1f-b0f1-a5d7ef93d999', 'views.0.serviceIds.0'];
         yield 'duplicate view services' => [['views', 0, 'serviceIds'], ['7d1678a5-e28f-4b1f-b0f1-a5d7ef93d001', '7d1678a5-e28f-4b1f-b0f1-a5d7ef93d001'], 'views.0.serviceIds'];
+        yield 'case-variant duplicate view services' => [['views', 0, 'serviceIds'], ['7d1678a5-e28f-4b1f-b0f1-a5d7ef93d001', '7D1678A5-E28F-4B1F-B0F1-A5D7EF93D001'], 'views.0.serviceIds'];
         yield 'service view without service' => [['views', 3, 'serviceIds'], [], 'views.3.serviceIds'];
         yield 'unknown period kind' => [['views', 0, 'period', 'kind'], 'past', 'views.0.period.kind'];
         yield 'zero upcoming days' => [['views', 0, 'period', 'days'], 0, 'views.0.period.days'];
@@ -307,6 +308,28 @@ final class PlanConfigurationTest extends TestCase {
         $input['services'][0]['selfSignup']['leaveEnabled'] = false;
 
         $this->assertRejected($input, 'flow.actions.1.columnIds.0');
+    }
+
+    #[DataProvider('definitionsWithoutDateRole')]
+    public function testReportsCollectionPathWhenNoDateRoleExists(array $input): void {
+        try {
+            PlanConfiguration::fromArray($input);
+            self::fail('Expected configuration rejection.');
+        } catch (InvalidArgumentException $error) {
+            self::assertSame('columns must contain exactly one date column.', $error->getMessage());
+        }
+    }
+
+    public static function definitionsWithoutDateRole(): iterable {
+        $outsideIndexZero = PlanFixtures::definition();
+        $date = array_shift($outsideIndexZero['columns']);
+        array_splice($outsideIndexZero['columns'], 1, 0, [$date]);
+        $outsideIndexZero['columns'][1]['role'] = 'text';
+        yield 'missing date outside index zero' => [$outsideIndexZero];
+
+        $empty = PlanFixtures::definition();
+        $empty['columns'] = [];
+        yield 'empty columns' => [$empty];
     }
 
     private function assertRejected(array $input, string $path): void {
