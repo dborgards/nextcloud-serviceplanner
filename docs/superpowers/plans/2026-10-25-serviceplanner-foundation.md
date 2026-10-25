@@ -480,13 +480,15 @@ git add lib/Repository lib/Service tests/Unit
 git commit -m "feat: add plan creation service"
 ```
 
-### Task 3: Nextcloud Persistence
+### Task 3: Nextcloud Persistence and OCC Administration
 
 **Files:**
 - Create: `lib/Migration/Version000001Date20261025000000.php`
 - Create: `lib/Db/Plan.php`
 - Create: `lib/Db/PlanMapper.php`
 - Create: `lib/Repository/DatabasePlanRepository.php`
+- Create: `lib/Command/CreatePlan.php`
+- Create: `lib/Command/ListPlans.php`
 - Create: `tests/Integration/smoke.sh`
 
 **Interfaces:**
@@ -686,28 +688,9 @@ Run `composer test`.
 
 Expected: all 6 tests still pass; persistence is tested separately because it requires Nextcloud.
 
-- [ ] **Step 5: Commit persistence before adding its command consumer**
+- [ ] **Step 5: Implement the two OCC commands**
 
-```bash
-git add appinfo/info.xml lib/AppInfo/Application.php lib/Migration lib/Db lib/Repository/DatabasePlanRepository.php tests/Integration/smoke.sh
-git commit -m "feat: persist plan definitions"
-```
-
-Expected at this stage: the smoke test still fails on missing OCC commands; Task 4 completes that vertical slice.
-
-### Task 4: OCC Administration and End-to-End Verification
-
-**Files:**
-- Create: `lib/Command/CreatePlan.php`
-- Create: `lib/Command/ListPlans.php`
-- Modify: `tests/Integration/smoke.sh` only if the real Nextcloud command output differs from the expected strings; do not weaken its assertions.
-- Test: `tests/Integration/smoke.sh`
-
-**Interfaces:**
-- Consumes: `PlanService::create(array $input): array` and `PlanService::list(): array` from Task 2.
-- Produces: `occ serviceplanner:create --name <name> --table-id <positive-int> [--description <text>] [--icon <name>] [--color <#rrggbb>]` and `occ serviceplanner:list`; later setup and release tasks may reuse the same service.
-
-- [ ] **Step 1: Implement the two OCC commands**
+The commands consume `PlanService::create(array $input): array` and `PlanService::list(): array` from Task 2. They produce `occ serviceplanner:create --name <name> --table-id <positive-int> [--description <text>] [--icon <name>] [--color <#rrggbb>]` and `occ serviceplanner:list`. Modify `tests/Integration/smoke.sh` only if the real Nextcloud command output differs from the expected strings; do not weaken its assertions.
 
 Create `lib/Command/CreatePlan.php`:
 
@@ -797,7 +780,7 @@ final class ListPlans extends Command {
 }
 ```
 
-- [ ] **Step 2: Run static syntax checks and unit tests**
+- [ ] **Step 6: Run static syntax checks and unit tests**
 
 Run:
 
@@ -808,7 +791,7 @@ composer test
 
 Expected: every file reports no syntax errors; all 6 unit tests pass.
 
-- [ ] **Step 3: Run the real Nextcloud smoke test**
+- [ ] **Step 7: Run the real Nextcloud smoke test**
 
 Use only a disposable Nextcloud 35 or 36 installation. Set `NEXTCLOUD_ROOT` and either `OCC_USER=''` or the appropriate web-server user, then run:
 
@@ -818,7 +801,7 @@ NEXTCLOUD_ROOT=/absolute/path/to/nextcloud OCC_USER='' tests/Integration/smoke.s
 
 Expected: app enables, migration creates `serviceplanner_plans`, create/list output contains `Smoke plan`, duplicate creation reports `A plan with this name already exists.`, app disables cleanly, and the exit trap removes only the temporary symlink.
 
-- [ ] **Step 4: Verify repository identity and final diff**
+- [ ] **Step 8: Verify repository identity and final diff**
 
 Run:
 
@@ -830,11 +813,11 @@ git status --short
 
 Expected: identity is exactly `2646931+dborgards@users.noreply.github.com`; `git diff --check` is empty; only intended plan files are staged in the next step.
 
-- [ ] **Step 5: Commit the working vertical slice**
+- [ ] **Step 9: Commit the working vertical slice**
 
 ```bash
-git add lib/Command tests/Integration/smoke.sh
-git commit -m "feat: manage plans through occ"
+git add appinfo/info.xml lib/AppInfo/Application.php lib/Migration lib/Db lib/Repository/DatabasePlanRepository.php lib/Command tests/Integration/smoke.sh
+git commit -m "feat: persist and manage plans through occ"
 ```
 
 Do not push without an explicit user request.
