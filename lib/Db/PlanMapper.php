@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace OCA\ServicePlanner\Db;
+
+use OCP\AppFramework\Db\QBMapper;
+use OCP\IDBConnection;
+
+final class PlanMapper extends QBMapper {
+    public function __construct(IDBConnection $db) {
+        parent::__construct($db, 'serviceplanner_plans', Plan::class);
+    }
+
+    public function insertDefinition(array $definition, int $now): Plan {
+        $plan = new Plan();
+        $plan->setName($definition['name']);
+        $plan->setDefinition(json_encode($definition, JSON_THROW_ON_ERROR));
+        $plan->setCreatedAt($now);
+        $plan->setUpdatedAt($now);
+        return $this->insert($plan);
+    }
+
+    public function findAllPlans(): array {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())->orderBy('name', 'ASC');
+        return $this->findEntities($qb);
+    }
+
+}

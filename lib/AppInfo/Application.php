@@ -17,6 +17,9 @@ final class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
+        $context->registerService(\OCA\ServicePlanner\Repository\PlanRepository::class, static fn () =>
+            \OCP\Server::get(\OCA\ServicePlanner\Repository\DatabasePlanRepository::class)
+        );
     }
 
     public function boot(IBootContext $context): void {
