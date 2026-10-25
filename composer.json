@@ -1,0 +1,14 @@
+{
+    "name": "dborgards/serviceplanner",
+    "description": "Configurable service and event planners for Nextcloud Tables",
+    "license": "AGPL-3.0-or-later",
+    "require-dev": {
+        "phpunit/phpunit": "^10.5"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}
