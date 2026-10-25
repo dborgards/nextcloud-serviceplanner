@@ -4,14 +4,23 @@ declare(strict_types=1);
 
 namespace OCA\ServicePlanner\Repository;
 
+use DomainException;
 use OCA\ServicePlanner\Db\PlanMapper;
+use OCP\DB\Exception as DatabaseException;
 
 final class DatabasePlanRepository implements PlanRepository {
     public function __construct(private PlanMapper $mapper) {
     }
 
     public function add(array $definition): array {
-        return $this->mapper->insertDefinition($definition, time())->toArray();
+        try {
+            return $this->mapper->insertDefinition($definition, time())->toArray();
+        } catch (DatabaseException $error) {
+            if ($error->getReason() === DatabaseException::REASON_UNIQUE_CONSTRAINT_VIOLATION) {
+                throw new DomainException('A plan with this name already exists.', 0, $error);
+            }
+            throw $error;
+        }
     }
 
     public function all(): array {
@@ -19,11 +28,6 @@ final class DatabasePlanRepository implements PlanRepository {
     }
 
     public function findByName(string $name): ?array {
-        foreach ($this->all() as $plan) {
-            if (mb_strtolower($plan['name']) === mb_strtolower($name)) {
-                return $plan;
-            }
-        }
-        return null;
+        return $this->mapper->findByName($name)?->toArray();
     }
 }

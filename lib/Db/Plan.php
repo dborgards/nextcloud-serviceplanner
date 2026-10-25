@@ -8,6 +8,7 @@ use OCP\AppFramework\Db\Entity;
 
 final class Plan extends Entity {
     protected string $name = '';
+    protected string $nameKey = '';
     protected string $definition = '{}';
     protected int $createdAt = 0;
     protected int $updatedAt = 0;

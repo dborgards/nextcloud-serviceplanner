@@ -18,9 +18,18 @@ final class PlanDefinition implements JsonSerializable {
     }
 
     public static function fromArray(array $input): self {
+        foreach (['name' => 'Plan name', 'description' => 'Description', 'icon' => 'Icon'] as $field => $label) {
+            $value = $input[$field] ?? null;
+            if (is_array($value) || is_object($value)) {
+                throw new InvalidArgumentException($label . ' must be a string.');
+            }
+        }
         $name = trim((string)($input['name'] ?? ''));
         if ($name === '') {
             throw new InvalidArgumentException('Plan name must not be empty.');
+        }
+        if (mb_strlen($name) > 190) {
+            throw new InvalidArgumentException('Plan name must not exceed 190 characters.');
         }
         $tableId = filter_var($input['tableId'] ?? null, FILTER_VALIDATE_INT);
         if ($tableId === false || $tableId < 1) {

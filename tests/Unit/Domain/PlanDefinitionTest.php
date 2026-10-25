@@ -6,6 +6,7 @@ namespace OCA\ServicePlanner\Tests\Unit\Domain;
 
 use InvalidArgumentException;
 use OCA\ServicePlanner\Domain\PlanDefinition;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class PlanDefinitionTest extends TestCase {
@@ -28,6 +29,50 @@ final class PlanDefinitionTest extends TestCase {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Plan name must not be empty.');
         PlanDefinition::fromArray(['name' => '  ', 'tableId' => 9]);
+    }
+
+    public function testAcceptsNamesWithExactly190Characters(): void {
+        foreach (['a', 'ü'] as $character) {
+            $name = str_repeat($character, 190);
+            $plan = PlanDefinition::fromArray(['name' => $name, 'tableId' => 9]);
+
+            self::assertSame($name, $plan->getName());
+        }
+    }
+
+    #[DataProvider('namesWith191Characters')]
+    public function testRejectsNamesWith191Characters(string $name): void {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Plan name must not exceed 190 characters.');
+        PlanDefinition::fromArray(['name' => $name, 'tableId' => 9]);
+    }
+
+    public static function namesWith191Characters(): array {
+        return [
+            'ASCII' => [str_repeat('a', 191)],
+            'multibyte' => [str_repeat('ü', 191)],
+        ];
+    }
+
+    #[DataProvider('malformedTextValues')]
+    public function testRejectsMalformedTextValues(string $field, mixed $value, string $message): void {
+        $input = ['name' => 'Team', 'tableId' => 9];
+        $input[$field] = $value;
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($message);
+        PlanDefinition::fromArray($input);
+    }
+
+    public static function malformedTextValues(): array {
+        return [
+            'name array' => ['name', ['Team'], 'Plan name must be a string.'],
+            'name object' => ['name', new \stdClass(), 'Plan name must be a string.'],
+            'description array' => ['description', ['Services'], 'Description must be a string.'],
+            'description object' => ['description', new \stdClass(), 'Description must be a string.'],
+            'icon array' => ['icon', ['calendar'], 'Icon must be a string.'],
+            'icon object' => ['icon', new \stdClass(), 'Icon must be a string.'],
+        ];
     }
 
     public function testRejectsInvalidTableId(): void {
