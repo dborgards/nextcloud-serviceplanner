@@ -40,6 +40,23 @@ final class PlanDefinitionTest extends TestCase {
         }
     }
 
+    public function testNameKeyIsFixedLengthForExpandingUnicode(): void {
+        $name = str_repeat('İ', 190);
+        self::assertSame(380, mb_strlen(mb_strtolower($name)));
+
+        $key = PlanDefinition::nameKey($name);
+
+        self::assertSame(64, strlen($key));
+        self::assertSame(hash('sha256', mb_strtolower($name)), $key);
+    }
+
+    public function testNameKeyMatchesCaseVariants(): void {
+        self::assertSame(
+            PlanDefinition::nameKey('Sunday TEAM'),
+            PlanDefinition::nameKey('sunday team'),
+        );
+    }
+
     #[DataProvider('namesWith191Characters')]
     public function testRejectsNamesWith191Characters(string $name): void {
         $this->expectException(InvalidArgumentException::class);

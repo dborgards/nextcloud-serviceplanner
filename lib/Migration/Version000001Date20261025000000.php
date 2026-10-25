@@ -19,7 +19,7 @@ final class Version000001Date20261025000000 extends SimpleMigrationStep {
         $table = $schema->createTable('serviceplanner_plans');
         $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true, 'unsigned' => true]);
         $table->addColumn('name', 'string', ['notnull' => true, 'length' => 190]);
-        $table->addColumn('name_key', 'string', ['notnull' => true, 'length' => 190]);
+        $table->addColumn('name_key', 'string', ['notnull' => true, 'length' => 64]);
         $table->addColumn('definition', 'text', ['notnull' => true]);
         $table->addColumn('created_at', 'bigint', ['notnull' => true, 'unsigned' => true]);
         $table->addColumn('updated_at', 'bigint', ['notnull' => true, 'unsigned' => true]);

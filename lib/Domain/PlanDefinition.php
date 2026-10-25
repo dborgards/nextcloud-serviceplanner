@@ -48,6 +48,10 @@ final class PlanDefinition implements JsonSerializable {
         );
     }
 
+    public static function nameKey(string $name): string {
+        return hash('sha256', mb_strtolower($name));
+    }
+
     public function getName(): string { return $this->name; }
     public function getTableId(): int { return $this->tableId; }
     public function getIcon(): string { return $this->icon; }
