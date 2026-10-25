@@ -1,0 +1,4 @@
+/.worktrees/
+/vendor/
+/node_modules/
+/.phpunit.cache/
