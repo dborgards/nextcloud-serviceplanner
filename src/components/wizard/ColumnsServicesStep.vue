@@ -15,7 +15,34 @@ function columnConfig(columnId) {
 const orderedColumns = computed(() => [
   ...props.draft.columns.map((config) => props.metadata.columns.find((column) => column.id === config.columnId)),
   ...props.metadata.columns.filter((column) => !columnConfig(column.id)),
-].filter(Boolean))
+].filter((column) => column && (!columnConfig(column.id) || roleOptions(column).length > 0)))
+const missingColumns = computed(() => props.draft.columns.filter((config) => {
+  const column = props.metadata.columns.find((item) => item.id === config.columnId)
+  return !column || roleOptions(column).length === 0
+}))
+
+function replacementOptions(columnId) {
+  return props.metadata.columns.filter((column) => roleOptions(column).length > 0
+    && (!columnConfig(column.id) || column.id === columnId))
+}
+
+function remapColumn(config, event) {
+  const oldId = config.columnId
+  const newId = Number(event.target.value)
+  if (!replacementOptions(oldId).some((column) => column.id === newId)) return
+  config.columnId = newId
+  for (const service of props.draft.services) {
+    service.columnIds = service.columnIds.map((id) => id === oldId ? newId : id)
+  }
+  for (const view of props.draft.views) {
+    view.columnIds = view.columnIds.map((id) => id === oldId ? newId : id)
+    for (const sort of view.sort) if (sort.columnId === oldId) sort.columnId = newId
+    for (const filter of view.filters) if (filter.columnId === oldId) filter.columnId = newId
+  }
+  for (const action of props.draft.flow.actions) {
+    action.columnIds = action.columnIds.map((id) => id === oldId ? newId : id)
+  }
+}
 
 function moveColumn(columnId, event) {
   const from = props.draft.columns.findIndex((column) => column.columnId === columnId)
@@ -89,6 +116,15 @@ function updateSignup(service, event) {
   <section aria-labelledby="columns-services-heading">
     <h2 id="columns-services-heading">Columns and services</h2>
     <p>Display labels belong to ServicePlanner and do not rename Tables columns.</p>
+
+    <div v-for="config in missingColumns" :key="config.columnId" class="column-row column-missing">
+      <h3>Missing or incompatible Tables column <small>ID {{ config.columnId }}</small></h3>
+      <label :for="`remap-column-${config.columnId}`">Replacement Tables column</label>
+      <select :id="`remap-column-${config.columnId}`" :data-test="`remap-column-${config.columnId}`" value="" @change="remapColumn(config, $event)">
+        <option value="" disabled>Select a replacement</option>
+        <option v-for="column in replacementOptions(config.columnId)" :key="column.id" :value="column.id">{{ column.title }} (ID {{ column.id }})</option>
+      </select>
+    </div>
 
     <div v-for="column in orderedColumns" :key="column.id" class="column-row">
       <h3>{{ column.title }} <small>ID {{ column.id }} · {{ column.type }}/{{ column.subtype || 'none' }}</small></h3>

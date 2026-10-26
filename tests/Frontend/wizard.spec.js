@@ -156,6 +156,39 @@ describe('wizard steps', () => {
     expect(matrix.text()).toContain('Yes')
     expect(wrapper.text()).toContain('prospective ServicePlanner capabilities')
   })
+
+  it('remaps a deleted Tables column through every configuration reference without changing stable IDs', async () => {
+    const draft = draftFromTable(metadata)
+    draft.columns.find((column) => column.columnId === 104).role = 'person'
+    draft.services[0].columnIds = [104]
+    draft.views[0].filters.push({ id: 'stable-filter', columnId: 104, operator: 'open', value: '' })
+    draft.flow.actions.push({ id: 'stable-flow', type: 'signup', columnIds: [104] })
+    const changed = structuredClone(metadata)
+    changed.columns[3] = { id: 105, title: 'Replacement people', type: 'text', subtype: 'line', mandatory: false, description: '' }
+    const wrapper = mount(ColumnsServicesStep, {
+      props: { draft, metadata: changed, issues: [{ code: 'column.missing', path: 'columns.3.columnId', message: 'Column 104 no longer exists.' }] },
+    })
+    await wrapper.get('[data-test="remap-column-104"]').setValue(105)
+    expect(draft.columns.map((column) => column.columnId)).toEqual([101, 102, 103, 105])
+    expect(draft.services[0].columnIds).toEqual([105])
+    expect(draft.views[0].columnIds).toContain(105)
+    expect(draft.views[0].filters[0]).toMatchObject({ id: 'stable-filter', columnId: 105 })
+    expect(draft.flow.actions[0]).toMatchObject({ id: 'stable-flow', columnIds: [105] })
+    expect(wrapper.text()).toContain('Column 104 no longer exists.')
+  })
+
+  it('offers remapping when an existing Tables column has changed to an unsupported type', async () => {
+    const draft = draftFromTable(metadata)
+    const changed = structuredClone(metadata)
+    changed.columns[3] = { ...changed.columns[3], type: 'number', subtype: '' }
+    changed.columns.push({ id: 105, title: 'Replacement', type: 'text', subtype: 'line', mandatory: false, description: '' })
+    const wrapper = mount(ColumnsServicesStep, {
+      props: { draft, metadata: changed, issues: [{ code: 'column.typeChanged', path: 'columns.3.columnId', message: 'Column 104 changed type.' }] },
+    })
+    await wrapper.get('[data-test="remap-column-104"]').setValue(105)
+    expect(draft.columns[3].columnId).toBe(105)
+    expect(wrapper.text()).toContain('Column 104 changed type.')
+  })
 })
 
 describe('wizard orchestration and plan list', () => {
@@ -168,7 +201,7 @@ describe('wizard orchestration and plan list', () => {
     createTable.mockResolvedValue(metadata)
   })
 
-  it('loads a new setup, selects real metadata, and ends at a disabled views control', async () => {
+  it('loads real metadata and navigates all five steps with one reactive draft', async () => {
     const wrapper = mount(SetupWizard)
     await flushPromises()
     expect(listTables).toHaveBeenCalledOnce()
@@ -180,10 +213,16 @@ describe('wizard orchestration and plan list', () => {
     expect(getTable).toHaveBeenCalledWith(42)
     await wrapper.get('[data-test="go-step-1"]').trigger('click')
     expect(wrapper.get('[data-test="role-101"]').exists()).toBe(true)
+    await wrapper.get('[data-test="label-102"]').setValue('Retained label')
     await wrapper.get('[data-test="go-step-2"]').trigger('click')
-    const terminal = wrapper.get('[data-test="views-required"]')
-    expect(terminal.attributes('disabled')).toBeDefined()
-    expect(terminal.text()).toBe('Views configuration required')
+    expect(wrapper.get('[data-test="next"]').exists()).toBe(true)
+    await wrapper.get('[data-test="go-step-3"]').trigger('click')
+    expect(wrapper.text()).toContain('Retained label')
+    await wrapper.get('[data-test="go-step-4"]').trigger('click')
+    expect(wrapper.get('[data-test="preview"]').exists()).toBe(true)
+    await wrapper.get('[data-test="back"]').trigger('click')
+    expect(wrapper.text()).toContain('Retained label')
+    expect(wrapper.find('[data-test="views-required"]').exists()).toBe(false)
   })
 
   it('preserves the draft when metadata loading fails', async () => {
