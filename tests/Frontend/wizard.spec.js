@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { reactive } from 'vue'
 import DataSourceStep from '../../src/components/wizard/DataSourceStep.vue'
 import ColumnsServicesStep from '../../src/components/wizard/ColumnsServicesStep.vue'
 import PermissionsStep from '../../src/components/wizard/PermissionsStep.vue'
@@ -124,6 +125,22 @@ describe('wizard steps', () => {
     globalThis.t = previousT
   })
 
+  it('localizes each Tables permission before joining the labels', () => {
+    const previousT = globalThis.t
+    const translate = vi.fn((app, text) => text.toUpperCase())
+    globalThis.t = translate
+    const shared = {
+      ...metadata,
+      shares: [{ receiverType: 'group', receiver: 'volunteers', read: true, create: true, update: true, delete: false, manage: false }],
+    }
+    const wrapper = mount(PermissionsStep, { props: { draft: draftFromTable(metadata), metadata: shared, groups: [] } })
+    expect(wrapper.text()).toContain('READ, CREATE, UPDATE')
+    expect(translate).toHaveBeenCalledWith('serviceplanner', 'read')
+    expect(translate).toHaveBeenCalledWith('serviceplanner', 'create')
+    expect(translate).toHaveBeenCalledWith('serviceplanner', 'update')
+    globalThis.t = previousT
+  })
+
   it('updates prospective capabilities when manager and signup selections change', async () => {
     const draft = draftFromTable(metadata)
     const groups = [{ id: 'volunteers', displayName: 'Volunteers' }]
@@ -178,6 +195,65 @@ describe('wizard orchestration and plan list', () => {
     await flushPromises()
     expect(wrapper.get('[role="alert"]').text()).toBe('Adapter failed.')
     expect(wrapper.get('[data-test="plan-name"]').element.value).toBe('Keep me')
+  })
+
+  it('replaces mappings from an actual reactive draft after confirmed selection', async () => {
+    const initialDraft = reactive(draftFromTable(metadata))
+    initialDraft.name = 'Reactive plan'
+    const replacement = { ...metadata, id: 43, title: 'Replacement table' }
+    listTables.mockResolvedValue({ tables: [metadata, replacement], tablesAvailable: true })
+    getTable.mockResolvedValue(replacement)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = mount(SetupWizard, { props: { initialDraft } })
+    await flushPromises()
+    await wrapper.get('[data-test="table-id"]').setValue('43')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(getTable).toHaveBeenCalledWith(43)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="plan-name"]').element.value).toBe('Reactive plan')
+    expect(wrapper.get('[data-test="table-id"]').element.value).toBe('43')
+  })
+
+  it('replaces mappings from an actual reactive draft after confirmed creation', async () => {
+    const initialDraft = reactive(draftFromTable(metadata))
+    initialDraft.name = 'Reactive create'
+    const replacement = { ...metadata, id: 43, title: 'Created table' }
+    createTable.mockResolvedValue(replacement)
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = mount(SetupWizard, { props: { initialDraft } })
+    await flushPromises()
+    await wrapper.get('[data-test="new-table-title"]').setValue('Created table')
+    await wrapper.get('[data-test="create-table"]').trigger('click')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(createTable).toHaveBeenCalledOnce()
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="plan-name"]').element.value).toBe('Reactive create')
+    expect(wrapper.get('[data-test="table-id"]').element.value).toBe('43')
+  })
+
+  it('cancels creation before the API call and preserves the draft on confirmed failure', async () => {
+    const initialDraft = reactive(draftFromTable(metadata))
+    initialDraft.name = 'Preserve me'
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false)
+    const wrapper = mount(SetupWizard, { props: { initialDraft } })
+    await flushPromises()
+    await wrapper.get('[data-test="new-table-title"]').setValue('Created table')
+    await wrapper.get('[data-test="create-table"]').trigger('click')
+    await flushPromises()
+    expect(createTable).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-test="plan-name"]').element.value).toBe('Preserve me')
+    expect(wrapper.get('[data-test="table-id"]').element.value).toBe('42')
+
+    confirm.mockReturnValueOnce(true)
+    createTable.mockRejectedValueOnce({ response: { data: { error: 'Create failed.' } } })
+    await wrapper.get('[data-test="create-table"]').trigger('click')
+    await flushPromises()
+    expect(createTable).toHaveBeenCalledOnce()
+    expect(wrapper.get('[role="alert"]').text()).toBe('Create failed.')
+    expect(wrapper.get('[data-test="plan-name"]').element.value).toBe('Preserve me')
+    expect(wrapper.get('[data-test="table-id"]').element.value).toBe('42')
   })
 
   it('loads edits by numeric ID and displays server configuration issues', async () => {

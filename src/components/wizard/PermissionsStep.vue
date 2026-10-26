@@ -35,8 +35,8 @@ function translate(text) {
 
 function sharePermissions(share) {
   const names = ['read', 'create', 'update', 'delete', 'manage'].filter((name) => share[name])
-  const label = names.length === 1 && names[0] === 'read' ? 'read only' : names.join(', ')
-  return translate(label)
+  const labels = names.length === 1 && names[0] === 'read' ? ['read only'] : names
+  return labels.map(translate).join(', ')
 }
 </script>
 

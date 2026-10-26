@@ -70,7 +70,7 @@ async function selectTable(tableId) {
   if (draft.value.tableId && draft.value.tableId !== tableId
     && !window.confirm('Change the Tables table? Table-specific mappings will be reset.')) return
 
-  const previous = draft.value
+  const previous = toRaw(draft.value)
   busy.value = true
   error.value = ''
   try {
@@ -86,7 +86,10 @@ async function selectTable(tableId) {
 }
 
 async function createSourceTable(input) {
-  const previous = draft.value
+  if (draft.value.tableId
+    && !window.confirm('Change the Tables table? Table-specific mappings will be reset.')) return
+
+  const previous = toRaw(draft.value)
   busy.value = true
   error.value = ''
   try {
