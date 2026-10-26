@@ -194,7 +194,7 @@ async function save() {
     const plan = isEdit.value
       ? await updatePlan(Number(props.initialPlan.id), draft.value, expectedRevision.value)
       : await createPlan(draft.value)
-    if (saveRevision === draftRevision.value) emit('saved', plan)
+    emit('saved', plan)
   } catch (cause) {
     if (cause?.response?.status === 409) {
       conflict.value = true
@@ -245,36 +245,38 @@ async function reloadSavedPlan() {
       </button>
     </nav>
 
-    <DataSourceStep
-      v-if="step === 0"
-      :draft="draft"
-      :tables="tables"
-      :tables-available="tablesAvailable"
-      @select-table="selectTable"
-      @create-table="createSourceTable"
-    />
-    <template v-else-if="step === 1">
-      <ColumnsServicesStep v-if="metadata" :draft="draft" :metadata="metadata" :issues="currentIssues" />
-      <p v-else>Select or create a Tables table first.</p>
-    </template>
-    <template v-else-if="step === 2">
-      <PermissionsStep v-if="metadata" :draft="draft" :metadata="metadata" :groups="groups" />
-      <p v-else>Select or create a Tables table first.</p>
-    </template>
-    <ViewsStep v-else-if="step === 3" :draft="draft" :issues="currentIssues" />
-    <FlowPreviewStep
-      v-else
-      :draft="draft"
-      :issues="currentIssues"
-      :preview="preview"
-      :busy="busy"
-      :can-save="canSave"
-      :is-edit="isEdit"
-      :conflict="conflict"
-      @preview="runPreview"
-      @save="save"
-      @reload="reloadSavedPlan"
-    />
+    <fieldset data-test="wizard-editor" class="wizard-editor" :disabled="busy">
+      <DataSourceStep
+        v-if="step === 0"
+        :draft="draft"
+        :tables="tables"
+        :tables-available="tablesAvailable"
+        @select-table="selectTable"
+        @create-table="createSourceTable"
+      />
+      <template v-else-if="step === 1">
+        <ColumnsServicesStep v-if="metadata" :draft="draft" :metadata="metadata" :issues="currentIssues" />
+        <p v-else>Select or create a Tables table first.</p>
+      </template>
+      <template v-else-if="step === 2">
+        <PermissionsStep v-if="metadata" :draft="draft" :metadata="metadata" :groups="groups" />
+        <p v-else>Select or create a Tables table first.</p>
+      </template>
+      <ViewsStep v-else-if="step === 3" :draft="draft" :issues="currentIssues" />
+      <FlowPreviewStep
+        v-else
+        :draft="draft"
+        :issues="currentIssues"
+        :preview="preview"
+        :busy="busy"
+        :can-save="canSave"
+        :is-edit="isEdit"
+        :conflict="conflict"
+        @preview="runPreview"
+        @save="save"
+        @reload="reloadSavedPlan"
+      />
+    </fieldset>
 
     <div class="wizard-navigation">
       <button type="button" data-test="back" :disabled="step === 0 || busy" @click="step -= 1">Back</button>

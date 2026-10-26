@@ -93,7 +93,12 @@ function changePeriodKind(view, event) {
 }
 
 function updateYear(view, event) {
-  view.period.year = event.target.value === 'current' ? 'current' : Number(event.target.value)
+  if (event.target.value === 'current') {
+    view.period.year = 'current'
+    return
+  }
+  const year = Number(event.target.value)
+  if (Number.isInteger(year) && year >= 2000 && year <= 2100) view.period.year = year
 }
 
 function updateDays(view, event) {

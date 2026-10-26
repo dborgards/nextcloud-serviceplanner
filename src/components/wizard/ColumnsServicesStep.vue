@@ -99,7 +99,10 @@ function addService() {
 }
 
 function removeService(index) {
-  props.draft.services.splice(index, 1)
+  const [service] = props.draft.services.splice(index, 1)
+  for (const view of props.draft.views) {
+    view.serviceIds = view.serviceIds.filter((id) => id !== service.id)
+  }
 }
 
 function updatePlaceholders(service, event) {

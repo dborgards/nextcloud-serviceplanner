@@ -153,6 +153,24 @@ describe('view and filter configuration', () => {
     expect(cards.period.days).toBe(45)
   })
 
+  it('keeps the last valid year when input is non-numeric, fractional or outside 2000–2100', async () => {
+    const draft = configuredDraft()
+    const wrapper = mount(ViewsStep, { props: { draft, issues: [] } })
+    const year = draft.views.find((view) => view.type === 'year')
+    const input = wrapper.get(`[data-test="year-${year.id}"]`)
+    await input.setValue('2027')
+    for (const invalid of ['1999', '2101', '2027.5', 'not-a-year', '']) {
+      await input.setValue(invalid)
+      expect(year.period.year).toBe(2027)
+    }
+    await input.setValue('2000')
+    expect(year.period.year).toBe(2000)
+    await input.setValue('2100')
+    expect(year.period.year).toBe(2100)
+    await input.setValue('current')
+    expect(year.period.year).toBe('current')
+  })
+
   it('reorders views and normalizes positions', async () => {
     const draft = configuredDraft()
     const wrapper = mount(ViewsStep, { props: { draft, issues: [] } })
@@ -426,6 +444,26 @@ describe('wizard preview and guarded save', () => {
     expect(wrapper.vm.draft.flow.actions[0].id).toBe('flow-id')
   })
 
+  it('removes a deleted service from every view and allows an issue-free preview', async () => {
+    const draft = configuredDraft()
+    const serviceId = draft.services[0].id
+    for (const view of draft.views) view.serviceIds = [serviceId]
+    getPlan.mockResolvedValue({ plan: draft, table: metadata, issues: [] })
+    previewDefinition.mockImplementation(async (definition) => ({ issues: [], normalized: JSON.parse(JSON.stringify(definition)), table: metadata, rows: [], summary: {} }))
+    const wrapper = await readyFinalWizard(draft, { initialPlan: { id: 9 }, initialDraft: null, expectedRevision: 1 })
+    await wrapper.get('[data-test="go-step-1"]').trigger('click')
+    await wrapper.get(`[data-test="remove-service-${serviceId}"]`).trigger('click')
+    expect(wrapper.vm.draft.services).toEqual([])
+    expect(wrapper.vm.draft.views.every((view) => !view.serviceIds.includes(serviceId))).toBe(true)
+    await wrapper.get('[data-test="go-step-4"]').trigger('click')
+    await wrapper.get('[data-test="preview"]').trigger('click')
+    await flushPromises()
+    expect(previewDefinition).toHaveBeenCalledOnce()
+    expect(wrapper.find('[data-test="preview-table"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Preview configuration issues"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="save-plan"]').attributes('disabled')).toBeUndefined()
+  })
+
   it('revalidates immediately before create and emits the returned plan', async () => {
     const draft = configuredDraft()
     previewDefinition.mockResolvedValue({ issues: [], normalized: draft, table: metadata, rows: [], summary: {} })
@@ -439,6 +477,30 @@ describe('wizard preview and guarded save', () => {
     expect(createPlan).toHaveBeenCalledWith(draft)
     expect(updatePlan).not.toHaveBeenCalled()
     expect(wrapper.emitted('saved')).toEqual([[{ id: 12, name: draft.name }]])
+  })
+
+  it('emits every deferred create success once and prevents editing or duplicate retry while busy', async () => {
+    const draft = configuredDraft()
+    let resolveCreate
+    createPlan.mockReturnValue(new Promise((resolve) => { resolveCreate = resolve }))
+    previewDefinition.mockResolvedValue({ issues: [], normalized: draft, table: metadata, rows: [], summary: {} })
+    const wrapper = await readyFinalWizard(draft)
+    await wrapper.get('[data-test="preview"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="save-plan"]').trigger('click')
+    await flushPromises()
+    expect(createPlan).toHaveBeenCalledOnce()
+    const editor = wrapper.find('[data-test="wizard-editor"]')
+    const editorDisabled = editor.exists() ? editor.attributes('disabled') : undefined
+    const saveButton = wrapper.get('[data-test="save-plan"]')
+    expect(saveButton.attributes('disabled')).toBeDefined()
+    saveButton.element.click()
+    wrapper.vm.draft.description = 'Programmatic edit during save'
+    resolveCreate({ id: 12, name: draft.name })
+    await flushPromises()
+    expect(wrapper.emitted('saved')).toEqual([[{ id: 12, name: draft.name }]])
+    expect(createPlan).toHaveBeenCalledOnce()
+    expect(editorDisabled).toBeDefined()
   })
 
   it('does not create when fresh validation finds issues', async () => {
