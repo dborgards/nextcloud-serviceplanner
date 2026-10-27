@@ -22,25 +22,32 @@ const missingColumns = computed(() => props.draft.columns.filter((config) => {
 }))
 
 function replacementOptions(columnId) {
+  const config = columnConfig(columnId)
   return props.metadata.columns.filter((column) => roleOptions(column).length > 0
-    && (!columnConfig(column.id) || column.id === columnId))
+    && (!columnConfig(column.id) || column.id === columnId
+      || (config?.role === 'person' && columnConfig(column.id)?.role === 'text')))
 }
 
 function remapColumn(config, event) {
   const oldId = config.columnId
   const newId = Number(event.target.value)
   if (!replacementOptions(oldId).some((column) => column.id === newId)) return
+  const replaced = columnConfig(newId)
+  if (replaced) props.draft.columns.splice(props.draft.columns.indexOf(replaced), 1)
   config.columnId = newId
+  props.draft.columns.forEach((column, index) => { column.position = index })
+  const remapIds = (ids) => [...new Set(ids.map((id) => id === oldId ? newId : id))]
   for (const service of props.draft.services) {
-    service.columnIds = service.columnIds.map((id) => id === oldId ? newId : id)
+    service.columnIds = remapIds(service.columnIds)
   }
   for (const view of props.draft.views) {
-    view.columnIds = view.columnIds.map((id) => id === oldId ? newId : id)
-    for (const sort of view.sort) if (sort.columnId === oldId) sort.columnId = newId
+    view.columnIds = remapIds(view.columnIds)
+    view.sort = view.sort.map((sort) => ({ ...sort, columnId: sort.columnId === oldId ? newId : sort.columnId }))
+    view.sort = view.sort.filter((sort, index) => view.sort.findIndex((item) => item.columnId === sort.columnId) === index)
     for (const filter of view.filters) if (filter.columnId === oldId) filter.columnId = newId
   }
   for (const action of props.draft.flow.actions) {
-    action.columnIds = action.columnIds.map((id) => id === oldId ? newId : id)
+    action.columnIds = remapIds(action.columnIds)
   }
 }
 

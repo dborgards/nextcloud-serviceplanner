@@ -177,6 +177,29 @@ describe('wizard steps', () => {
     expect(wrapper.text()).toContain('Column 104 no longer exists.')
   })
 
+  it('merges a missing person mapping into an existing text column without duplicate references', async () => {
+    const draft = draftFromTable(metadata)
+    draft.columns.find((column) => column.columnId === 104).role = 'person'
+    draft.services[0].columnIds = [104]
+    draft.views[0].filters.push({ id: 'stable-filter', columnId: 104, operator: 'open', value: '' })
+    draft.flow.actions.push({ id: 'stable-flow', type: 'setCell', columnIds: [103, 104] })
+    const changed = structuredClone(metadata)
+    changed.columns = changed.columns.filter((column) => column.id !== 104)
+    const wrapper = mount(ColumnsServicesStep, {
+      props: { draft, metadata: changed, issues: [{ code: 'column.missing', path: 'columns.3.columnId', message: 'Column 104 no longer exists.' }] },
+    })
+    const remap = wrapper.get('[data-test="remap-column-104"]')
+    expect(remap.find('option[value="103"]').exists()).toBe(true)
+    await remap.setValue(103)
+    expect(draft.columns.map((column) => column.columnId)).toEqual([101, 102, 103])
+    expect(draft.columns.map((column) => column.position)).toEqual([0, 1, 2])
+    expect(draft.columns[2].role).toBe('person')
+    expect(draft.services[0].columnIds).toEqual([103])
+    expect(draft.views[0].columnIds).toEqual([101, 102, 103])
+    expect(draft.views[0].filters[0]).toMatchObject({ id: 'stable-filter', columnId: 103 })
+    expect(draft.flow.actions[0]).toMatchObject({ id: 'stable-flow', columnIds: [103] })
+  })
+
   it('offers remapping when an existing Tables column has changed to an unsupported type', async () => {
     const draft = draftFromTable(metadata)
     const changed = structuredClone(metadata)

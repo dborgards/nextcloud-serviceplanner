@@ -87,3 +87,16 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncRoute))
     </template>
   </main>
 </template>
+
+<style scoped>
+:global(#serviceplanner) {
+  height: 100%;
+}
+
+.serviceplanner-setup {
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+}
+</style>
