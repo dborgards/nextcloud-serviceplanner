@@ -18,9 +18,33 @@ final class PlanMapper extends QBMapper {
         $plan->setName($definition['name']);
         $plan->setNameKey(PlanDefinition::nameKey($definition['name']));
         $plan->setDefinition(json_encode($definition, JSON_THROW_ON_ERROR));
+        $plan->setRevision(1);
         $plan->setCreatedAt($now);
         $plan->setUpdatedAt($now);
         return $this->insert($plan);
+    }
+
+    public function updateDefinition(int $id, int $expectedRevision, array $definition, int $now): ?Plan {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update($this->getTableName())
+            ->set('name', $qb->createNamedParameter($definition['name']))
+            ->set('name_key', $qb->createNamedParameter(PlanDefinition::nameKey($definition['name'])))
+            ->set('definition', $qb->createNamedParameter(json_encode($definition, JSON_THROW_ON_ERROR)))
+            ->set('updated_at', $qb->createNamedParameter($now))
+            ->set('revision', $qb->createFunction('revision + 1'))
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+            ->andWhere($qb->expr()->eq('revision', $qb->createNamedParameter($expectedRevision)));
+        if ($qb->executeStatement() !== 1) {
+            return null;
+        }
+        return $this->findById($id);
+    }
+
+    public function deleteDefinition(int $id): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+            ->executeStatement();
     }
 
     public function findAllPlans(): array {
@@ -37,4 +61,11 @@ final class PlanMapper extends QBMapper {
         return $this->findEntities($qb)[0] ?? null;
     }
 
+    public function findById(int $id): ?Plan {
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')->from($this->getTableName())
+            ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+            ->setMaxResults(1);
+        return $this->findEntities($qb)[0] ?? null;
+    }
 }
