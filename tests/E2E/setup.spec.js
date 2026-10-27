@@ -304,30 +304,74 @@ test('complete setup journey on real Nextcloud and Tables', async ({ page, brows
     expect(response.status).toBe(200)
     initial = response.body
     const plan = initial.plan
-    expect(plan.name).toBe(planName)
-    expect(plan.revision).toBe(1)
-    expect(plan.columns.map((column) => column.position)).toEqual([0, 1, 2, 3])
-    expect(plan.columns.find((column) => column.columnId === columns.Team).role).toBe('person')
-    expect(plan.services).toHaveLength(1)
-    expect(plan.services[0]).toMatchObject({
-      name: 'Music and sound', icon: 'music', columnIds: [columns.Team],
-      notAssignedValues: ['TBA', '--'], selfSignup: { enabled: true, leaveEnabled: true },
+    const allColumnIds = [columns.Date, columns.Title, columns.Notes, columns.Team]
+    const serviceId = plan.services[0].id
+    const viewIds = plan.views.map((view) => view.id)
+    expect(plan).toEqual({
+      id: planId,
+      revision: 1,
+      createdAt: expect.any(Number),
+      updatedAt: expect.any(Number),
+      schemaVersion: 1,
+      name: planName,
+      description: 'Real NC35 and Tables browser verification',
+      icon: 'calendar-star',
+      color: '#0082c9',
+      tableId,
+      personNames: { separators: [',', ';', '\n'] },
+      columns: [
+        { columnId: columns.Date, role: 'date', displayLabel: 'Date', position: 0 },
+        { columnId: columns.Title, role: 'title', displayLabel: 'Celebration', position: 1 },
+        { columnId: columns.Notes, role: 'text', displayLabel: 'Notes', position: 2 },
+        { columnId: columns.Team, role: 'person', displayLabel: 'Team', position: 3 },
+      ],
+      services: [{
+        id: serviceId,
+        name: 'Music and sound',
+        icon: 'music',
+        columnIds: [columns.Team],
+        notAssignedValues: ['TBA', '--'],
+        selfSignup: { enabled: true, leaveEnabled: true },
+      }],
+      permissions: { managerGroups: [managerGroup], visibleGroups: [managerGroup, visibleGroup] },
+      views: [
+        {
+          id: viewIds[0], type: 'cards', title: 'Upcoming', icon: 'calendar', enabled: true, position: 0,
+          columnIds: allColumnIds, serviceIds: [], period: { kind: 'upcoming', days: 120 },
+          sort: [{ columnId: columns.Date, direction: 'asc' }],
+          filters: [{ id: expect.any(String), columnId: columns.Title, operator: 'contains', value: seededTitle }],
+        },
+        {
+          id: viewIds[1], type: 'year', title: 'Year grid', icon: 'grid', enabled: true, position: 1,
+          columnIds: allColumnIds, serviceIds: [], period: { kind: 'year', year: 2027 },
+          sort: [{ columnId: columns.Date, direction: 'asc' }],
+          filters: [{ id: expect.any(String), columnId: columns.Notes, operator: 'equals', value: 'Seed note' }],
+        },
+        {
+          id: viewIds[2], type: 'mine', title: 'My services', icon: 'account-check', enabled: true, position: 2,
+          columnIds: allColumnIds, serviceIds: [], period: { kind: 'upcoming', days: 365 },
+          sort: [{ columnId: columns.Date, direction: 'asc' }],
+          filters: [{ id: expect.any(String), columnId: columns.Notes, operator: 'isEmpty', value: '' }],
+        },
+        {
+          id: viewIds[3], type: 'service', title: 'Service', icon: 'account-group', enabled: true, position: 3,
+          columnIds: allColumnIds, serviceIds: [serviceId], period: { kind: 'year', year: 2027 },
+          sort: [{ columnId: columns.Date, direction: 'asc' }],
+          filters: [
+            { id: expect.any(String), columnId: columns.Title, operator: 'isNotEmpty', value: '' },
+            { id: expect.any(String), columnId: columns.Team, operator: 'open', value: '' },
+          ],
+        },
+      ],
+      defaultViewId: viewIds[0],
+      flow: {
+        actions: [
+          { id: expect.any(String), type: 'signup', columnIds: [columns.Team] },
+          { id: expect.any(String), type: 'leave', columnIds: [columns.Team] },
+          { id: expect.any(String), type: 'setCell', columnIds: [columns.Notes, columns.Team] },
+        ],
+      },
     })
-    expect(plan.permissions).toEqual({ managerGroups: [managerGroup], visibleGroups: [managerGroup, visibleGroup] })
-    expect(plan.views.map((view) => view.type)).toEqual(['cards', 'year', 'mine', 'service'])
-    expect(plan.views.every((view) => view.enabled)).toBe(true)
-    expect(plan.defaultViewId).toBe(plan.views[0].id)
-    expect(plan.views[0].period).toEqual({ kind: 'upcoming', days: 120 })
-    expect(plan.views[1].period).toEqual({ kind: 'year', year: 2027 })
-    const filters = plan.views.flatMap((view) => view.filters)
-    expect(filters.map((filter) => filter.operator).sort()).toEqual(['contains', 'equals', 'isEmpty', 'isNotEmpty', 'open'])
-    expect(filters.find((filter) => filter.operator === 'contains').value).toBe(seededTitle)
-    expect(filters.find((filter) => filter.operator === 'equals').value).toBe('Seed note')
-    expect(filters.find((filter) => filter.operator === 'open').columnId).toBe(columns.Team)
-    expect(plan.flow.actions.map((action) => action.type)).toEqual(['signup', 'leave', 'setCell'])
-    expect(plan.flow.actions[0].columnIds).toEqual([columns.Team])
-    expect(plan.flow.actions[1].columnIds).toEqual([columns.Team])
-    expect(plan.flow.actions[2].columnIds).toEqual([columns.Notes, columns.Team])
     initialStableIds = stableIds(plan)
     expect(initialStableIds.filterIds).toHaveLength(5)
     expect(initialStableIds.flowIds).toHaveLength(3)
@@ -404,7 +448,9 @@ test('complete setup journey on real Nextcloud and Tables', async ({ page, brows
     stored = await api(page, 'GET', `/api/plans/${planId}`)
     expect(stored.body.plan).toEqual(current.plan)
 
-    const beforeIds = stored.body.plan.id
+    const beforeList = await api(page, 'GET', '/api/plans')
+    expect(beforeList.status).toBe(200)
+    const beforeIds = beforeList.body.plans.map((plan) => plan.id).sort((a, b) => a - b)
     const incognito = await browser.newContext({ baseURL: process.env.NEXTCLOUD_URL })
     const anonymous = await incognito.request.post('/index.php/apps/serviceplanner/api/plans', {
       headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
@@ -414,7 +460,7 @@ test('complete setup journey on real Nextcloud and Tables', async ({ page, brows
     await incognito.close()
     const list = await api(page, 'GET', '/api/plans')
     expect(list.status).toBe(200)
-    expect(list.body.plans.filter((plan) => plan.id === beforeIds)).toHaveLength(1)
+    expect(list.body.plans.map((plan) => plan.id).sort((a, b) => a - b)).toEqual(beforeIds)
     expect(list.body.plans.find((plan) => plan.id === planId).revision).toBe(current.plan.revision)
   })
 
