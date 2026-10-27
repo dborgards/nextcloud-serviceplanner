@@ -46,7 +46,7 @@ final class DatabasePlanRepository implements PlanRepository {
             throw $error;
         }
         if ($plan === null) {
-            throw new SetupException('The plan changed in another session. Reload before saving.', 409);
+            throw new SetupException('The plan changed in another session. Reload before saving.', 409, [], null, 'stale_revision');
         }
         return $plan->toArray();
     }

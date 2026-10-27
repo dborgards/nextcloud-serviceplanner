@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 
 const props = defineProps({
   draft: { type: Object, required: true },
@@ -12,7 +12,9 @@ const newTableTitle = ref('')
 
 function selectTable(event) {
   if (event.target.value !== '') {
-    emit('select-table', Number(event.target.value))
+    const select = event.target
+    emit('select-table', Number(select.value))
+    nextTick(() => { select.value = String(props.draft.tableId || '') })
   }
 }
 

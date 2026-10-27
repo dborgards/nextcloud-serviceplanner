@@ -103,6 +103,9 @@ final class SetupController extends Controller {
             return new JSONResponse($action(), $successStatus);
         } catch (SetupException $error) {
             $response = ['error' => $error->getMessage()];
+            if ($error->getErrorCode() !== null) {
+                $response['code'] = $error->getErrorCode();
+            }
             if ($error->getIssues() !== []) {
                 $response['issues'] = $error->getIssues();
             }
@@ -110,7 +113,7 @@ final class SetupController extends Controller {
         } catch (InvalidArgumentException $error) {
             return new JSONResponse(['error' => $error->getMessage()], 400);
         } catch (DomainException $error) {
-            return new JSONResponse(['error' => $error->getMessage()], 409);
+            return new JSONResponse(['error' => $error->getMessage(), 'code' => 'duplicate_name'], 409);
         }
     }
 

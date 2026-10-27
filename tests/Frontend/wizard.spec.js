@@ -277,6 +277,39 @@ describe('wizard orchestration and plan list', () => {
     expect(wrapper.get('[data-test="table-id"]').element.value).toBe('43')
   })
 
+  it('restores the native table selection after cancelling a confirmed change', async () => {
+    const initialDraft = reactive(draftFromTable(metadata))
+    const replacement = { ...metadata, id: 43, title: 'Replacement table' }
+    listTables.mockResolvedValue({ tables: [metadata, replacement], tablesAvailable: true })
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const wrapper = mount(SetupWizard, { props: { initialDraft } })
+    await flushPromises()
+    await wrapper.get('[data-test="table-id"]').setValue('43')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledOnce()
+    expect(getTable).not.toHaveBeenCalled()
+    expect(wrapper.vm.draft.tableId).toBe(42)
+    expect(wrapper.get('[data-test="table-id"]').element.value).toBe('42')
+  })
+
+  it('restores the native table selection after metadata loading fails', async () => {
+    const initialDraft = reactive(draftFromTable(metadata))
+    initialDraft.name = 'Retain failed selection draft'
+    const replacement = { ...metadata, id: 43, title: 'Replacement table' }
+    listTables.mockResolvedValue({ tables: [metadata, replacement], tablesAvailable: true })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    getTable.mockRejectedValueOnce({ response: { data: { error: 'Metadata failed.' } } })
+    const wrapper = mount(SetupWizard, { props: { initialDraft } })
+    await flushPromises()
+    await wrapper.get('[data-test="table-id"]').setValue('43')
+    await flushPromises()
+    expect(getTable).toHaveBeenCalledWith(43)
+    expect(wrapper.get('[role="alert"]').text()).toBe('Metadata failed.')
+    expect(wrapper.vm.draft.tableId).toBe(42)
+    expect(wrapper.vm.draft.name).toBe('Retain failed selection draft')
+    expect(wrapper.get('[data-test="table-id"]').element.value).toBe('42')
+  })
+
   it('replaces mappings from an actual reactive draft after confirmed creation', async () => {
     const initialDraft = reactive(draftFromTable(metadata))
     initialDraft.name = 'Reactive create'

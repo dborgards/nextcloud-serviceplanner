@@ -196,7 +196,7 @@ async function save() {
       : await createPlan(draft.value)
     emit('saved', plan)
   } catch (cause) {
-    if (cause?.response?.status === 409) {
+    if (isEdit.value && cause?.response?.status === 409 && cause?.response?.data?.code === 'stale_revision') {
       conflict.value = true
       error.value = `${errorMessage(cause)} Reload saved plan to replace this local draft, or keep editing and preview again.`
     } else {
@@ -210,6 +210,7 @@ async function save() {
 }
 
 async function reloadSavedPlan() {
+  if (!isEdit.value || !conflict.value) return
   if (!window.confirm('Reload the saved plan and replace your local draft?')) return
   busy.value = true
   error.value = ''

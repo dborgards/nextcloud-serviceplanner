@@ -34,10 +34,7 @@ final class TablesAdapter implements TablesGateway {
 		try {
 			$tables = $this->tableService($userId)->findAll($userId, true, false, false);
 			return array_map(function ($table) use ($userId): array {
-				$dto = $this->tableDto($table, [], $userId);
-				$dto['shares'] = [];
-				$dto['permissions']['sharesVisible'] = false;
-				return $dto;
+				return $this->tableDto($table, [], $userId, false);
 			}, $tables);
 		} catch (SetupException $error) {
 			throw $error;
@@ -147,7 +144,7 @@ final class TablesAdapter implements TablesGateway {
 		}
 	}
 
-	private function tableDto($table, array $columns, string $userId): array {
+	private function tableDto($table, array $columns, string $userId, bool $includeShares = true): array {
 		$id = (int)$table->getId();
 		$canManage = $this->canManage($id, $userId);
 		return [
@@ -160,9 +157,9 @@ final class TablesAdapter implements TablesGateway {
 			'permissions' => [
 				'canManage' => $canManage,
 				'canUpdateRows' => $this->canUpdateRows($id, $userId),
-				'sharesVisible' => $canManage,
+				'sharesVisible' => $includeShares && $canManage,
 			],
-			'shares' => $canManage ? $this->shares($id, $userId) : [],
+			'shares' => $includeShares && $canManage ? $this->shares($id, $userId) : [],
 			'tablesUrl' => '/apps/tables/#/table/' . $id,
 		];
 	}
